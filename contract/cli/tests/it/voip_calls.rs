@@ -452,3 +452,70 @@ fn a_bound_implementation_is_handed_the_list_and_reports_a_choice() {
         logs(&r)
     );
 }
+
+#[test]
+fn a_bound_implementation_reports_a_call_the_platform_started() {
+    use exact_runner::{Outcome, Reply, Response};
+    use std::sync::Arc;
+    let app = App::new("reported");
+    let mut r = boot(&app);
+    r.native_slot()
+        .host(Some(Arc::new(move |_body: Vec<u8>, reply: Reply| {
+            reply.send(Outcome::Response(Response {
+                status: 200,
+                headers: Vec::new(),
+                body: br#"{"available":true,"systemUI":true}"#.to_vec(),
+            }));
+        })));
+    r.bind_extensions(&["calls"], &[]);
+    // No app code asked for this call: a VoIP push rang it.
+    r.native_slot().changed(
+        r#"exact-report:{"extension":"calls","send":"reportIncomingCall","args":{"id":"p1","handle":"+15555550100","handleType":"phoneNumber"}}"#,
+    );
+    settle(&mut r);
+    let call = &state(&r)["calls"][0];
+    assert_eq!(
+        (
+            call["id"].as_str(),
+            call["direction"].as_str(),
+            call["state"].as_str()
+        ),
+        (Some("p1"), Some("incoming"), Some("ringing")),
+        "{}",
+        logs(&r)
+    );
+    // The person answers it on the platform's screen, as any listed call.
+    r.native_slot().changed(
+        r#"exact-choice:{"extension":"calls","state":"calls","key":"p1","choice":"answer"}"#,
+    );
+    settle(&mut r);
+    assert!(
+        slot(&r, "heard").contains("answer p1 connected"),
+        "{}",
+        logs(&r)
+    );
+    // A second report of a live call, and a report of a send with no list, change nothing.
+    r.native_slot().changed(
+        r#"exact-report:{"extension":"calls","send":"reportIncomingCall","args":{"id":"p1","handle":"+15555550100"}}"#,
+    );
+    r.native_slot()
+        .changed(r#"exact-report:{"extension":"calls","send":"endCall","args":{"id":"p1"}}"#);
+    settle(&mut r);
+    assert_eq!(
+        state(&r)["calls"].as_array().unwrap().len(),
+        1,
+        "{}",
+        logs(&r)
+    );
+    assert_eq!(state(&r)["calls"][0]["state"], "connected", "{}", logs(&r));
+    assert!(
+        logs(&r).contains("calls.reportIncomingCall: report refused"),
+        "{}",
+        logs(&r)
+    );
+    assert!(
+        logs(&r).contains("calls.endCall: a report of no declared list, refused"),
+        "{}",
+        logs(&r)
+    );
+}
