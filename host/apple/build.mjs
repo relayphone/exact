@@ -54,7 +54,7 @@ import { appleImplementations } from '../../js/bake/src/typescript.mjs';
 import { composedModule, moduleSeam, systemFrameworks } from './compose.mjs';
 import { associatedDomains, entitlementValue, macPresence, macPasskeys, macProfileRows, merchantEntitlement, signInEntitlement } from './presence.mjs';
 import { writeDataKeys } from './data-keys.mjs';
-import { backgroundKeys, bootsAtLaunch, localNetworking, nfcKeys, startLocation, transportSecurity, updateActivation } from './plist.mjs';
+import { backgroundKeys, implementationReach, localNetworking, nfcKeys, startLocation, transportSecurity, updateActivation } from './plist.mjs';
 import { compileFixtures, iosTestRuns, macTests, onlyClasses } from './xctest.mjs';
 import { appIcon, buildInfo, iosAssets, appleAssets, appleAssetCatalogInventory, copyMacResources, signingOrder, helperEntitlements, plistFile, wrapFramework, signedGpuProduct, assertArchiveFrameworks } from './assets.mjs';
 import { auditLaunchParts, launchModules, launchServices, serviceArgs, writeLaunchParts } from './launch-parts.mjs';
@@ -401,7 +401,7 @@ export const usageKeys = (reach) => {
  * (`modules`): each declared dictionary, keyed by the strings keys the app
  * passes and valued by their base text (LLP 1133.002 D10). */
 const modulePlist = (app, reach, target) => {
-  const packages = appleImplementations(app.dir, target), added = packages.flatMap((p) => p.plist); reach = bootsAtLaunch(packages, reach);
+  const packages = appleImplementations(app.dir, target), added = packages.flatMap((p) => p.plist); reach = implementationReach(packages, reach);
   if (!added.length) return reach;
   const base = reach?.base ?? 'en', strings = JSON.parse(readFileSync(resolve(app.dir, `strings/${base}.json`), 'utf8'));
   const modules = Object.fromEntries(added.map(({ key, keys }) => [key, Object.fromEntries(keys.map((k) => {

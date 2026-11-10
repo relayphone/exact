@@ -10,6 +10,7 @@ import { HERMES_INSTALLER, hermesBundle, hermesLeanSysRoots } from './app.mjs';
 import { checkHermesBundles, hermesCrossTargets, hermesSetupTargets } from './exact.mjs';
 import { iosAssets, entitlements, infoPlist, macInfoPlist, documentTypes, importedTypes, exportedTypes, writeUsageStrings, designCompatible, COMPATIBLE_SDK, moduleTripleFor } from '../host/apple/build.mjs';
 import { useXcode } from '../host/apple/devices.mjs';
+import { implementationReach } from '../host/apple/plist.mjs';
 import { macReleaseEntitlements, launchImageInventory } from '../host/apple/assets.mjs';
 
 test('the Apple build rejects --phone before selecting a simulator or resolving an app', () => {
@@ -195,6 +196,9 @@ test('device grants derive the plists, their translations and the release entitl
   // An implementation declared `"start": "launch"`: the host boots a session for a launch with no scene.
   assert.match(infoPlist(app, false, { reach: { bootsInBackground: true } }), /<key>ExactBootsInBackground<\/key><true\/>/);
   assert.doesNotMatch(infoPlist(app, false), /ExactBootsInBackground/);
+  assert.deepEqual(implementationReach([{ entitlements: ['aps-environment'] }], { entitlements: ['a'] }).entitlements, ['a', 'aps-environment']);
+  assert.equal(implementationReach([{ launch: true }], null).bootsInBackground, true);
+  assert.equal(implementationReach([{}], reach), reach);
   const dir = mkdtempSync(resolve(tmpdir(), 'exact-usage-'));
   try {
     writeUsageStrings(reach, dir);

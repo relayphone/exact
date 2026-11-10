@@ -67,7 +67,7 @@ export function signInEntitlement(auth, simulator) {
  * item 1). App Attest's environment is `development` for a debuggable build and `production` for a release; Apple
  * uses production for TestFlight and App Store builds whatever it says. */
 export function entitlementValue(name, debuggable) {
-  if (name === 'com.apple.developer.devicecheck.appattest-environment') return debuggable ? 'development' : 'production';
+  if (name === 'com.apple.developer.devicecheck.appattest-environment' || name === 'aps-environment') return debuggable ? 'development' : 'production';
   return true;
 }
 
