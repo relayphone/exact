@@ -63,5 +63,10 @@ export function nfcKeys(ios, tv) {
   };
 }
 
-/** `reach` marked when an implementation declared `"start": "launch"`: a launch with no scene, as a VoIP push's, boots a session for it. */
-export const bootsAtLaunch = (packages, reach) => packages.some((p) => p.launch) ? { ...reach, bootsInBackground: true } : reach;
+/** `reach` with what the implementations ask of the app: `"start": "launch"` boots a session in a launch with no scene, as a VoIP push's, and
+ * `entitlements` join the signing entitlements. */
+export const implementationReach = (packages, reach) => {
+  const asked = packages.flatMap((p) => p.entitlements ?? []), launch = packages.some((p) => p.launch);
+  if (!launch && !asked.length) return reach;
+  return { ...reach, ...(launch ? { bootsInBackground: true } : {}), ...(asked.length ? { entitlements: [...new Set([...(reach?.entitlements ?? []), ...asked])] } : {}) };
+};
