@@ -62,3 +62,6 @@ export function nfcKeys(ios, tv) {
     ...(nfc.felicaSystemCodes?.length ? { 'com.apple.developer.nfc.readersession.felica.systemcodes': nfc.felicaSystemCodes } : {}),
   };
 }
+
+/** `reach` marked when an implementation declared `"start": "launch"`: a launch with no scene, as a VoIP push's, boots a session for it. */
+export const bootsAtLaunch = (packages, reach) => packages.some((p) => p.launch) ? { ...reach, bootsInBackground: true } : reach;

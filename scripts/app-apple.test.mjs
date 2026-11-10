@@ -192,6 +192,9 @@ test('device grants derive the plists, their translations and the release entitl
   }
   // No device grant, no key: the plists are what they were.
   for (const plist of [infoPlist(app, false), macInfoPlist(app, { reach: { ...reach, usage: {} } })]) assert.doesNotMatch(plist, /UsageDescription|CFBundleLocalizations/);
+  // An implementation declared `"start": "launch"`: the host boots a session for a launch with no scene.
+  assert.match(infoPlist(app, false, { reach: { bootsInBackground: true } }), /<key>ExactBootsInBackground<\/key><true\/>/);
+  assert.doesNotMatch(infoPlist(app, false), /ExactBootsInBackground/);
   const dir = mkdtempSync(resolve(tmpdir(), 'exact-usage-'));
   try {
     writeUsageStrings(reach, dir);
