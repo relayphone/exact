@@ -221,6 +221,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         TraceSignal.install { session }
         if ExactEnv.agentFreezes { session.clock = 0 }
         ExactLaunch.shared.didFinishLaunching()
+        #if !os(tvOS)
+        // A VoIP push launches the app with no scene, and PushKit delivers it only once the app has
+        // made its registry, so an implementation declared `"start": "launch"` needs its session now.
+        if Bundle.main.object(forInfoDictionaryKey: "ExactBootsInBackground") as? Bool == true { session.bootForWake() }
+        #endif
         return true
     }
     #if !os(tvOS)

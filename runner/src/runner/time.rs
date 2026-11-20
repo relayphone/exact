@@ -226,6 +226,11 @@ impl<D: DataSource> Runner<D> {
                 self.listed_choice(choice);
                 continue;
             }
+            // A call the platform started, reported by a bound implementation.
+            if let Some(report) = topic.strip_prefix(super::modules::REPORTED) {
+                self.listed_report(report);
+                continue;
+            }
             // An implementation's own objects, for `state.extensions` (LLP 1133.008 D8 item 9).
             if let Some(state) = topic.strip_prefix(super::modules::STATED) {
                 self.disclosed_told(state);

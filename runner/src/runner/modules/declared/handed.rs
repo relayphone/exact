@@ -17,6 +17,12 @@
 //!   declared choice as `tap @ref <choice>` does, its event raised with a
 //!   person's origin. Only an interface the runner keeps, bound here, may
 //!   say one, and only of its declared choices.
+//! - **Reported:** a call the platform started, such as one a VoIP push rang
+//!   before the app ran, is a topic the implementation's `changed` says,
+//!   `exact-report:` then `{"extension", "send", "args"}`: the send's declared
+//!   list form applies, and the send's origin and foreground rules do not,
+//!   since no app code asked. The host attaches the reporting extension.
+//!   The report must name that bound extension's own runner-kept list.
 
 use super::super::super::{DataSource, Runner};
 use super::super::{Json, ModulesRow};
@@ -26,6 +32,10 @@ use serde_json::json;
 /// The prefix of a `changed` topic that is a bound implementation's choice
 /// (module doc).
 pub(in crate::runner) const CHOSEN: &str = "exact-choice:";
+
+/// The prefix of a `changed` topic that is a bound implementation's report
+/// of an entry the platform started (module doc).
+pub(in crate::runner) const REPORTED: &str = "exact-report:";
 
 impl<D: DataSource> Runner<D> {
     /// Whether the runner answers `row` though its extension is bound: a
@@ -120,6 +130,46 @@ impl<D: DataSource> Runner<D> {
         };
         if let Err(why) = self.tap_choice(extension, state, reference, Some(choice)) {
             self.log(format!("{extension}.{state}: `{choice}` refused: {why}"));
+        }
+    }
+
+    /// A bound implementation's report of an entry the platform started
+    /// (module doc); journaled when refused.
+    pub(in crate::runner) fn listed_report(&mut self, body: &str) {
+        let Ok([reporter, report]) = serde_json::from_str::<[String; 2]>(body) else {
+            self.log(format!("{REPORTED} missing host report envelope"));
+            return;
+        };
+        let v: Json = serde_json::from_str(&report).unwrap_or_default();
+        let (Some(extension), Some(send)) = (v["extension"].as_str(), v["send"].as_str()) else {
+            self.log(format!("{REPORTED} not a report"));
+            return;
+        };
+        if extension != reporter.as_str() || !self.extensions.bound.contains(extension) {
+            self.log(format!(
+                "{extension}.{send}: report from a different or unbound extension, refused"
+            ));
+            return;
+        }
+        let row = (self.plan.modules.iter())
+            .find(|row| {
+                self.plan.str(row.extension) == extension && self.plan.str(row.declared) == send
+            })
+            .cloned();
+        let Some(row) = row.filter(|row| self.substitute(row)["list"]["state"].is_string()) else {
+            self.log(format!(
+                "{extension}.{send}: a report of no declared list, refused"
+            ));
+            return;
+        };
+        if !self.kept_by_runner(&row) {
+            self.log(format!(
+                "{extension}.{send}: a report from an implementation whose list the runner does not keep here, refused"
+            ));
+            return;
+        }
+        if let Err(why) = self.apply_effect(&row, &v["args"]) {
+            self.log(format!("{extension}.{send}: report refused: {why}"));
         }
     }
 }

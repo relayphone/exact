@@ -366,7 +366,17 @@ extension ExactExtensions {
         tables[ObjectIdentifier(m)] = tracks
         return ExactPackageContext(
             agent: module.agent && !real.contains(name), session: session, hostSession: module.poster["owner"] ?? "",
-            changed: { [weak module] topic in module?.changed(topic) },
+            changed: { [weak module] topic in
+                let prefix = "exact-report:"
+                guard topic.hasPrefix(prefix) else {
+                    module?.changed(topic)
+                    return
+                }
+                // The runner gets the identity from this host context.
+                let report = String(topic.dropFirst(prefix.count))
+                guard let data = try? JSONEncoder().encode([name, report]) else { return }
+                module?.changed(prefix + String(decoding: data, as: UTF8.self))
+            },
             log: { [weak module] line in module?.diagnostics.log(line) },
             now: { [weak module] in module?.now() ?? 0 },
             tracks: tracks,

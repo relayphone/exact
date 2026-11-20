@@ -62,3 +62,17 @@ export function nfcKeys(ios, tv) {
     ...(nfc.felicaSystemCodes?.length ? { 'com.apple.developer.nfc.readersession.felica.systemcodes': nfc.felicaSystemCodes } : {}),
   };
 }
+
+/** `reach` with what the implementations ask of the app: `"start": "launch"` boots a session in a launch with no scene, as a VoIP push's, and
+ * `entitlements` join the signing entitlements. */
+export const implementationReach = (packages, reach, target) => {
+  const asked = packages.flatMap(({ extension, entitlements = [] }) => {
+    if (!Array.isArray(entitlements) || entitlements.some(name => target !== 'ios' || name !== 'aps-environment')) {
+      throw new Error('host/apple: invalid implementation entitlements for ' + (extension ?? 'package'));
+    }
+    return entitlements;
+  });
+  const launch = packages.some((p) => p.launch);
+  if (!launch && !asked.length) return reach;
+  return { ...reach, ...(launch ? { bootsInBackground: true } : {}), ...(asked.length ? { entitlements: [...new Set([...(reach?.entitlements ?? []), ...asked])] } : {}) };
+};
