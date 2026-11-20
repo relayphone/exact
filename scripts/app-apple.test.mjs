@@ -196,9 +196,8 @@ test('device grants derive the plists, their translations and the release entitl
   // An implementation declared `"start": "launch"`: the host boots a session for a launch with no scene.
   assert.match(infoPlist(app, false, { reach: { bootsInBackground: true } }), /<key>ExactBootsInBackground<\/key><true\/>/);
   assert.doesNotMatch(infoPlist(app, false), /ExactBootsInBackground/);
-  assert.deepEqual(implementationReach([{ entitlements: ['aps-environment'] }], { entitlements: ['a'] }).entitlements, ['a', 'aps-environment']);
-  assert.equal(implementationReach([{ launch: true }], null).bootsInBackground, true);
-  assert.equal(implementationReach([{}], reach), reach);
+  assert.equal(implementationReach([{ launch: true }], null, 'ios').bootsInBackground, true);
+  assert.equal(implementationReach([{}], reach, 'ios'), reach);
   const dir = mkdtempSync(resolve(tmpdir(), 'exact-usage-'));
   try {
     writeUsageStrings(reach, dir);
@@ -475,6 +474,23 @@ test('widgets share the owner Keychain groups and leave the host sample outside 
   assert.match(infoPlist(app,false,{executable:'Test'}), /ExactAppGroup/);
   assert.doesNotMatch(infoPlist(app,false,{executable:'Test'}), /NSSupportsLiveActivities/);
   assert.doesNotMatch(entitlements(app,null,true,null,{simulator:true}), /aps-environment/);
+});
+
+test('iOS implementations can request push signing without owning host entitlements', () => {
+  const app = { id: 'com.exact.test', manifest: {} };
+  const packages = [{ extension: 'calls', entitlements: ['aps-environment'] }];
+  const reach = implementationReach(packages, { entitlements: ['aps-environment'] }, 'ios');
+  assert.deepEqual(reach.entitlements, ['aps-environment']);
+  for (const [debuggable, environment] of [[true, 'development'], [false, 'production']]) {
+    const plist = entitlements(app, 'TEAM', debuggable, reach);
+    assert.ok(plist.includes('<key>aps-environment</key><string>' + environment + '</string>'));
+    assert.ok(plist.includes('<key>get-task-allow</key><' + debuggable + '/>'));
+  }
+  for (const invalid of [['get-task-allow'], 'aps-environment', null]) {
+    assert.throws(() => implementationReach([{ extension: 'calls', entitlements: invalid }], null, 'ios'),
+      /invalid implementation entitlements for calls/);
+  }
+  assert.throws(() => implementationReach(packages, null, 'macos'), /invalid implementation entitlements for calls/);
 });
 
 test('Live Activities alone gate the group, the Keychain group and the plist keys, and a pushed one signs aps-environment (LLP 1126.001 WP13)', async () => {

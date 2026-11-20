@@ -21,8 +21,8 @@
 //!   before the app ran, is a topic the implementation's `changed` says,
 //!   `exact-report:` then `{"extension", "send", "args"}`: the send's declared
 //!   list form applies, and the send's origin and foreground rules do not,
-//!   since no app code asked. Only an interface the runner keeps, bound here,
-//!   may say one, and only of a send that declares a list.
+//!   since no app code asked. The host attaches the reporting extension.
+//!   The report must name that bound extension's own runner-kept list.
 
 use super::super::super::{DataSource, Runner};
 use super::super::{Json, ModulesRow};
@@ -136,28 +136,33 @@ impl<D: DataSource> Runner<D> {
     /// A bound implementation's report of an entry the platform started
     /// (module doc); journaled when refused.
     pub(in crate::runner) fn listed_report(&mut self, body: &str) {
-        let v: Json = serde_json::from_str(body).unwrap_or_default();
-        let (Some(extension), Some(send)) = (v["extension"].as_str(), v["send"].as_str()) else {
-            self.log(format!("{REPORTED} not a report: {body}"));
+        let Ok([reporter, report]) = serde_json::from_str::<[String; 2]>(body) else {
+            self.log(format!("{REPORTED} missing host report envelope"));
             return;
         };
+        let v: Json = serde_json::from_str(&report).unwrap_or_default();
+        let (Some(extension), Some(send)) = (v["extension"].as_str(), v["send"].as_str()) else {
+            self.log(format!("{REPORTED} not a report"));
+            return;
+        };
+        if extension != reporter.as_str() || !self.extensions.bound.contains(extension) {
+            self.log(format!(
+                "{extension}.{send}: report from a different or unbound extension, refused"
+            ));
+            return;
+        }
         let row = (self.plan.modules.iter())
             .find(|row| {
                 self.plan.str(row.extension) == extension && self.plan.str(row.declared) == send
             })
             .cloned();
-        let state = (row.as_ref()).and_then(|row| {
-            self.substitute(row)["list"]["state"]
-                .as_str()
-                .map(str::to_owned)
-        });
-        let (Some(row), Some(state)) = (row, state) else {
+        let Some(row) = row.filter(|row| self.substitute(row)["list"]["state"].is_string()) else {
             self.log(format!(
                 "{extension}.{send}: a report of no declared list, refused"
             ));
             return;
         };
-        if !self.handed_lists().contains(&(extension.to_owned(), state)) {
+        if !self.kept_by_runner(&row) {
             self.log(format!(
                 "{extension}.{send}: a report from an implementation whose list the runner does not keep here, refused"
             ));

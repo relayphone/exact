@@ -401,7 +401,7 @@ export const usageKeys = (reach) => {
  * (`modules`): each declared dictionary, keyed by the strings keys the app
  * passes and valued by their base text (LLP 1133.002 D10). */
 const modulePlist = (app, reach, target) => {
-  const packages = appleImplementations(app.dir, target), added = packages.flatMap((p) => p.plist); reach = implementationReach(packages, reach);
+  const packages = appleImplementations(app.dir, target), added = packages.flatMap((p) => p.plist); reach = implementationReach(packages, reach, target);
   if (!added.length) return reach;
   const base = reach?.base ?? 'en', strings = JSON.parse(readFileSync(resolve(app.dir, `strings/${base}.json`), 'utf8'));
   const modules = Object.fromEntries(added.map(({ key, keys }) => [key, Object.fromEntries(keys.map((k) => {

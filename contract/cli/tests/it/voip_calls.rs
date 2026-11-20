@@ -467,11 +467,18 @@ fn a_bound_implementation_reports_a_call_the_platform_started() {
                 body: br#"{"available":true,"systemUI":true}"#.to_vec(),
             }));
         })));
-    r.bind_extensions(&["calls"], &[]);
+    r.bind_extensions(&["calls", "other"], &[]);
+    let report = |reporter: &str, report: &str| {
+        format!("exact-report:{}", serde_json::json!([reporter, report]))
+    };
+    let incoming = r#"{"extension":"calls","send":"reportIncomingCall","args":{"id":"p1","handle":"+15555550100","handleType":"phoneNumber"}}"#;
+    r.native_slot().changed(&report("other", incoming));
+    settle(&mut r);
+    assert!(state(&r)["calls"].as_array().is_none_or(Vec::is_empty));
+    assert!(logs(&r).contains("report from a different or unbound extension, refused"));
+
     // No app code asked for this call: a VoIP push rang it.
-    r.native_slot().changed(
-        r#"exact-report:{"extension":"calls","send":"reportIncomingCall","args":{"id":"p1","handle":"+15555550100","handleType":"phoneNumber"}}"#,
-    );
+    r.native_slot().changed(&report("calls", incoming));
     settle(&mut r);
     let call = &state(&r)["calls"][0];
     assert_eq!(
@@ -495,11 +502,11 @@ fn a_bound_implementation_reports_a_call_the_platform_started() {
         logs(&r)
     );
     // A second report of a live call, and a report of a send with no list, change nothing.
-    r.native_slot().changed(
-        r#"exact-report:{"extension":"calls","send":"reportIncomingCall","args":{"id":"p1","handle":"+15555550100"}}"#,
-    );
-    r.native_slot()
-        .changed(r#"exact-report:{"extension":"calls","send":"endCall","args":{"id":"p1"}}"#);
+    r.native_slot().changed(&report("calls", incoming));
+    r.native_slot().changed(&report(
+        "calls",
+        r#"{"extension":"calls","send":"endCall","args":{"id":"p1"}}"#,
+    ));
     settle(&mut r);
     assert_eq!(
         state(&r)["calls"].as_array().unwrap().len(),
